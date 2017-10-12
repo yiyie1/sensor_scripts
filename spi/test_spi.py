@@ -120,16 +120,19 @@ def RunSPI(cmd, data, device):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-r', help = "Read SPI", type=str)
-    parser.add_argument('-w', help="Write SPI", type=str)
+    parser.add_argument("-d", help="Hal library name, default hal_ftdi.dll", type=str, default="hal_ftdi.dll")
+    parser.add_argument('-r', help="Read SPI, like -r 0x14,8;0x14,8", type=str)
+    parser.add_argument('-w', help="Write SPI, like -w 0x34;0x2C", type=str)
 
     args = parser.parse_args()
 
     if args.r is None and args.w is None:
-        print("Please pass -r or -w")
+        print("Please pass -r or -w, like python test_spi.py -r 0x14,8;0x14,8 -w 0x34;0x2C")
 
     else:
-        MyHal = HAL(r"hal_ftdi.dll")
+        print("Hal Library name: ", args.d)
+
+        MyHal = HAL(args.d)
         MyHal.setup_interface()
 
         device = FpcHalDeviceHandle_t()
