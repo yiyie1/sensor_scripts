@@ -90,33 +90,42 @@ def SetUpDevice(MyHal, device):
         print("Incorrect IRQ", irq.raw)
         return -1
 
-def RunSPI(cmd, data, device):
+def RunSPI(op, data, device):
     values = data.split(",")
 
-    if cmd == "read":
-        value = int(values[0], 16) if values[0].startswith('0x') else int(values[0])
+    if op == "read":
+        value = int(values[0], 16) if values[0].startswith('0x') or values[0].startswith(' 0x') else int(values[0])
+        if value == 4 or value == 8:
+            cmd = (c.c_char * 2)()
+            cmd[0] = value
+            cmd[1] = int(values[1], 16) if values[1].startswith('0x') or values[1].startswith(' 0x') else int(values[1])
+        else:
+            cmd = c.c_char(value)
+
         read_buffer_len = int(values[-1])
         read_buffer = c.create_string_buffer(read_buffer_len)
-        cmd = c.c_char(value)
-
         status = MyHal.WriteReadSpi(c.pointer(device), c.byref(cmd), 1, read_buffer, read_buffer_len)
         if status != FPC_SUCCESS:
-            print("Read SPI fail:", status)
+            print("Read", values, "fail:", status)
         else:
-            print("Read SPI success, buffer:", read_buffer.raw)
+            print("Read", values, "success, buffer:", to_hex_string(read_buffer.raw))
 
-    elif cmd == "write":
+    elif op == "write":
         write_buffer_len = len(values)
         cmd = (c.c_char * write_buffer_len)()
         for i, val in enumerate(values):
-            cmd[i] = int(val, 16) if val.startswith('0x') else int(val)
+            cmd[i] = int(val, 16) if val.startswith(' 0x') or val.startswith('0x') else int(val)
 
         status = MyHal.WriteReadSpi(c.pointer(device), c.byref(cmd), write_buffer_len, None, 0)
 
         if status != FPC_SUCCESS:
-            print("Write SPI fail:", status)
+            print("Write", values, "fail:", status)
         else:
-            print("Write SPI success")
+            print("Write", values, "success")
+
+def to_hex_string(values):
+  "convert list of values to a hex string"
+  return ", ".join('%02x' % value for value in values)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
