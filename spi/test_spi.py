@@ -94,11 +94,11 @@ def RunSPI(op, data, device):
     values = data.split(",")
 
     if op == "read":
-        value = int(values[0], 16) if values[0].startswith('0x') or values[0].startswith(' 0x') else int(values[0])
+        value = int(values[0], 16) if values[0].strip().startswith('0x') else int(values[0])
         if value == 4 or value == 8:
             cmd = (c.c_char * 2)()
             cmd[0] = value
-            cmd[1] = int(values[1], 16) if values[1].startswith('0x') or values[1].startswith(' 0x') else int(values[1])
+            cmd[1] = int(values[1], 16) if values[1].strip().startswith('0x') else int(values[1])
         else:
             cmd = c.c_char(value)
 
@@ -114,7 +114,7 @@ def RunSPI(op, data, device):
         write_buffer_len = len(values)
         cmd = (c.c_char * write_buffer_len)()
         for i, val in enumerate(values):
-            cmd[i] = int(val, 16) if val.startswith(' 0x') or val.startswith('0x') else int(val)
+            cmd[i] = int(val, 16) if val.strip().startswith('0x') else int(val)
 
         status = MyHal.WriteReadSpi(c.pointer(device), c.byref(cmd), write_buffer_len, None, 0)
 
