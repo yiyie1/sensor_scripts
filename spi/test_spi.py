@@ -96,11 +96,11 @@ def RunSPI(op, data, device):
     if op == "read":
         value = int(values[0], 16) if values[0].strip().startswith('0x') else int(values[0])
         if value == 4 or value == 8:
-            cmd = (c.c_char * 2)()
+            cmd = (c.c_uint8 * 2)()
             cmd[0] = value
             cmd[1] = int(values[1], 16) if values[1].strip().startswith('0x') else int(values[1])
         else:
-            cmd = c.c_char(value)
+            cmd = c.c_uint8(value)
 
         read_buffer_len = int(values[-1])
         read_buffer = c.create_string_buffer(read_buffer_len)
@@ -108,11 +108,11 @@ def RunSPI(op, data, device):
         if status != FPC_SUCCESS:
             print("Read", values, "fail:", status)
         else:
-            print("Read", values, "success, buffer:", to_hex_string(read_buffer.raw))
+            print("Read", values, "success, buffer:", read_buffer.raw)
 
     elif op == "write":
         write_buffer_len = len(values)
-        cmd = (c.c_char * write_buffer_len)()
+        cmd = (c.c_uint8 * write_buffer_len)()
         for i, val in enumerate(values):
             cmd[i] = int(val, 16) if val.strip().startswith('0x') else int(val)
 
@@ -123,40 +123,58 @@ def RunSPI(op, data, device):
         else:
             print("Write", values, "success")
 
+    return status
+
 def to_hex_string(values):
   "convert list of values to a hex string"
   return ", ".join('%02x' % value for value in values)
 
+def ReadSPI(device, command):
+    read_data = command.split("-r")
+    if len(read_data) > 1:
+        for val in read_data[1].strip().split(";"):
+            RunSPI("read", val, device)
+
+def WriteSPI(device, command):
+    write_data = command.split("-w")
+    if len(write_data) > 1:
+        for val in write_data[1].strip().split(";"):
+            status = RunSPI("write", val, device)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", help="Hal library name, default hal_ftdi.dll", type=str, default="hal_ftdi.dll")
-    parser.add_argument('-r', help="Read SPI, like -r 0x14,8;0x14,8", type=str)
-    parser.add_argument('-w', help="Write SPI, like -w 0x34;0x2C", type=str)
 
     args = parser.parse_args()
 
-    if args.r is None and args.w is None:
-        print("Please pass -r or -w, like python test_spi.py -r 0x14,8;0x14,8 -w 0x34;0x2C")
+    print("Hal Library name: ", args.d)
 
-    else:
-        print("Hal Library name: ", args.d)
+    MyHal = HAL(args.d)
+    MyHal.setup_interface()
 
-        MyHal = HAL(args.d)
-        MyHal.setup_interface()
+    device = FpcHalDeviceHandle_t()
 
-        device = FpcHalDeviceHandle_t()
+    try:
+        status = SetUpDevice(MyHal, device)
 
-        try:
-            status = SetUpDevice(MyHal, device)
+        if status == FPC_SUCCESS:
+            print("Open device succeed")
+            while(True):
+                print("-------------------")
+                command = input("You could input -r 0x14,8;0xfc,2 to read spi or -w 0x34 to write spi\n-q to quit\n")
+                if '-q' in command:
+                    break
 
-            if status == FPC_SUCCESS:
-                if args.w:
-                    for val in args.w.split(";"):
-                        RunSPI("write", val, device)
-                if args.r:
-                    for val in args.r.split(";"):
-                        RunSPI("read", val, device)
-        finally:
-            MyHal.CloseDevice(c.pointer(device))
+                if '-r' in command and '-w' in command:
+                    print("Only support -r or -w alone")
+                    continue
+
+                if '-r' in command:
+                    ReadSPI(device, command)
+                elif '-w' in command:
+                    WriteSPI(device, command)
+
+    finally:
+        MyHal.CloseDevice(c.pointer(device))
 
 
